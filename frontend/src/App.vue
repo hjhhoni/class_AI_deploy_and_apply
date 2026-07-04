@@ -275,6 +275,7 @@ function toggleCategory(cat) {
 const RENDER_SCRIPT = `
 (function(){
   var el = document.getElementById('graph');
+  var cardEl = document.getElementById('node-card');
   var nodes = (DATA.nodes||[]).map(function(n){ return Object.assign({}, n, {neighbors:[], links:[]}); });
   var byId = {}; nodes.forEach(function(n){ byId[n.id]=n; });
   var links = (DATA.links||[]).filter(function(l){
@@ -285,13 +286,27 @@ const RENDER_SCRIPT = `
     s.links.push(link); t.links.push(link);
     return true;
   });
-  var hoverNode=null, hoverNeighbors=new Set(), hoverLinks=new Set();
+  var hoverNode=null;
+  var pinnedNode=null, pinnedNeighbors=new Set();
+  var catActive=null;
+
   function hexToRgba(hex,a){
     var h=String(hex).replace('#','');
     var r=parseInt(h.substring(0,2),16),g=parseInt(h.substring(2,4),16),b=parseInt(h.substring(4,6),16);
     return 'rgba('+r+','+g+','+b+','+a+')';
   }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function endId(end){ return end && typeof end==='object' ? end.id : end; }
+  function linkHitPinned(link){ return pinnedNode && (endId(link.source)===pinnedNode.id || endId(link.target)===pinnedNode.id); }
+  function linkHitCat(link){ return catActive && (link.source.category===catActive || link.target.category===catActive); }
+
+  function showCard(node){
+    if(!node || !cardEl){ if(cardEl) cardEl.style.display='none'; return; }
+    var color = CATEGORY_COLORS[node.category]||'#778ca3';
+    cardEl.innerHTML = '<div class="card-head"><span class="card-dot" style="background:'+color+';box-shadow:0 0 8px '+color+';"></span><span class="card-name">'+esc(node.name)+'</span></div><div class="card-cat">'+esc(node.category||'')+'</div>'+(node.desc?'<div class="card-desc">'+esc(node.desc)+'</div>':'<div class="card-desc muted">暂无描述</div>');
+    cardEl.style.display='block';
+  }
+
   var graph = ForceGraph()(el)
     .graphData({nodes:nodes, links:links})
     .backgroundColor('rgba(0,0,0,0)')
@@ -302,20 +317,23 @@ const RENDER_SCRIPT = `
       var baseR=11/gs;
       var color=CATEGORY_COLORS[node.category]||'#778ca3';
       var isHover=hoverNode===node;
-      var isNeighbor=hoverNeighbors.has(node);
-      var dim=hoverNode&&!isHover&&!isNeighbor;
-      var r=isHover?baseR*1.45:baseR;
-      ctx.globalAlpha=dim?0.12:1;
-      var glowR=r*(isHover?3.4:2.4);
+      var isPinned=pinnedNode===node;
+      var isNeighbor=pinnedNeighbors.has(node);
+      var catMatch=catActive && node.category===catActive;
+      var dim=(pinnedNode && !isPinned && !isNeighbor) || (catActive && !catMatch);
+      var boosted=isHover||isPinned||catMatch;
+      var r=boosted?baseR*1.4:baseR;
+      ctx.globalAlpha=dim?0.1:1;
+      var glowR=r*(boosted?3.4:2.3);
       var grad=ctx.createRadialGradient(node.x,node.y,r*0.4,node.x,node.y,glowR);
-      grad.addColorStop(0,hexToRgba(color,isHover?0.6:0.45));
+      grad.addColorStop(0,hexToRgba(color,boosted?0.62:0.4));
       grad.addColorStop(1,hexToRgba(color,0));
       ctx.beginPath(); ctx.arc(node.x,node.y,glowR,0,2*Math.PI);
       ctx.fillStyle=grad; ctx.fill();
       ctx.beginPath(); ctx.arc(node.x,node.y,r,0,2*Math.PI);
       ctx.fillStyle=color; ctx.fill();
-      ctx.lineWidth=(isHover?2.6:1.2)/gs;
-      ctx.strokeStyle=isHover?'#ffffff':hexToRgba(color,0.7);
+      ctx.lineWidth=(boosted?2.6:1.2)/gs;
+      ctx.strokeStyle=boosted?'#ffffff':hexToRgba(color,0.7);
       ctx.stroke();
       var fs=13/gs;
       ctx.font='600 '+fs+'px "Microsoft YaHei","PingFang SC",sans-serif';
@@ -323,32 +341,64 @@ const RENDER_SCRIPT = `
       var ty=node.y+r+4/gs;
       ctx.lineWidth=3.5/gs; ctx.strokeStyle='rgba(5,5,20,0.92)'; ctx.lineJoin='round';
       ctx.strokeText(node.name,node.x,ty);
-      ctx.fillStyle=isHover?'#ffffff':'#eaeaf2';
+      ctx.fillStyle=boosted?'#ffffff':'#eaeaf2';
       ctx.fillText(node.name,node.x,ty);
       ctx.globalAlpha=1;
     })
-    .nodeLabel(function(node){
-      var color=CATEGORY_COLORS[node.category]||'#778ca3';
-      return '<div class="kg-tip"><div class="kg-tip-row"><span class="kg-tip-dot" style="background:'+color+';box-shadow:0 0 8px '+color+';"></span><span class="kg-tip-name">'+esc(node.name)+'</span></div><div class="kg-tip-cat">'+esc(node.category||'')+'</div>'+(node.desc?'<div class="kg-tip-desc">'+esc(node.desc)+'</div>':'<div class="kg-tip-desc muted">暂无描述</div>')+'</div>';
-    })
     .onNodeHover(function(node){
-      hoverNeighbors=new Set(); hoverLinks=new Set();
-      if(node){ node.neighbors.forEach(function(n){hoverNeighbors.add(n);}); node.links.forEach(function(l){hoverLinks.add(l);}); }
       hoverNode=node||null;
+      showCard(node);
       el.style.cursor=node?'pointer':'grab';
     })
-    .linkColor(function(link){ return hoverNode ? (hoverLinks.has(link)?'rgba(120,210,255,0.95)':'rgba(150,170,210,0.05)') : 'rgba(150,170,210,0.3)'; })
-    .linkWidth(function(link){ return (hoverNode&&hoverLinks.has(link))?2.2:1; })
+    .onNodeClick(function(node){
+      if(!node) return;
+      if(pinnedNode===node){ pinnedNode=null; pinnedNeighbors=new Set(); }
+      else { pinnedNode=node; pinnedNeighbors=new Set(node.neighbors||[]); }
+      graph.d3ReheatSimulation();
+    })
+    .linkColor(function(link){
+      if(pinnedNode) return linkHitPinned(link)?'rgba(120,210,255,0.95)':'rgba(150,170,210,0.04)';
+      if(catActive)  return linkHitCat(link)?'rgba(120,210,255,0.85)':'rgba(150,170,210,0.04)';
+      return 'rgba(150,170,210,0.3)';
+    })
+    .linkWidth(function(link){
+      if(pinnedNode && linkHitPinned(link)) return 2.2;
+      if(catActive) return linkHitCat(link)?1.8:0.5;
+      return 1;
+    })
     .linkDirectionalArrowLength(5)
     .linkDirectionalArrowRelPos(1)
-    .linkDirectionalArrowColor(function(link){ return (hoverNode&&hoverLinks.has(link))?'rgba(120,210,255,0.95)':'rgba(150,170,210,0.5)'; })
+    .linkDirectionalArrowColor(function(link){
+      if(pinnedNode && linkHitPinned(link)) return 'rgba(120,210,255,0.95)';
+      if(catActive) return linkHitCat(link)?'rgba(120,210,255,0.85)':'rgba(150,170,210,0.1)';
+      return 'rgba(150,170,210,0.5)';
+    })
     .linkLabel(function(link){ return link.label?'<span class="kg-link-tip">'+esc(link.label)+'</span>':''; })
     .linkHoverPrecision(2)
     .cooldownTicks(150);
   graph.d3Force('charge').strength(-320);
   graph.d3Force('link').distance(85).strength(0.5);
   graph.d3Force('center', null);
-  graph.onEngineStop(function(){ graph.zoomToFit(400,60); });
+  // 弹性拖拽：拖时释放非被拖节点让弹簧跟随、松手回弹、稳定后重新锁位防漂移
+  graph.onNodeDrag(function(node){
+    var ns=graph.graphData().nodes;
+    for(var i=0;i<ns.length;i++){ if(ns[i]!==node){ ns[i].fx=null; ns[i].fy=null; } }
+  });
+  graph.onNodeDragEnd(function(node){ if(node){ node.fx=null; node.fy=null; } });
+  graph.onEngineStop(function(){
+    var ns=graph.graphData().nodes;
+    for(var i=0;i<ns.length;i++){ if(ns[i].x!=null && isFinite(ns[i].x)){ ns[i].fx=ns[i].x; ns[i].fy=ns[i].y; } }
+  });
+  // 图例点击聚光灯
+  var legendItems=document.querySelectorAll('.legend-item');
+  legendItems.forEach(function(it){
+    it.addEventListener('click', function(){
+      var c=it.getAttribute('data-cat');
+      catActive = (catActive===c)?null:c;
+      legendItems.forEach(function(x){ x.classList.toggle('active', x.getAttribute('data-cat')===catActive); });
+      graph.d3ReheatSimulation();
+    });
+  });
   window.addEventListener('resize', function(){ graph.width(el.clientWidth).height(el.clientHeight); });
 })();
 `;
@@ -363,7 +413,7 @@ function buildGraphHtml(data, title, libSrc) {
     const colorsJson = JSON.stringify(categoryColors).replace(/</g, '\\u003c');
     const legendHtml = Object.entries(categoryColors)
         .filter(([cat]) => data.nodes.some((n) => n.category === cat))
-        .map(([cat, color]) => `<span class="legend-item"><span class="legend-dot" style="background:${color};color:${color}"></span>${cat}</span>`)
+        .map(([cat, color]) => `<span class="legend-item" data-cat="${cat}"><span class="legend-dot" style="background:${color};color:${color}"></span>${cat}</span>`)
         .join('');
     return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -375,27 +425,30 @@ function buildGraphHtml(data, title, libSrc) {
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:#07071a;font-family:'Microsoft YaHei','PingFang SC',sans-serif;overflow:hidden;}
 #graph{width:100vw;height:100vh;}
-.info{position:fixed;top:14px;left:16px;color:#9aa;font-size:13px;background:rgba(0,0,0,.35);padding:8px 14px;border-radius:10px;backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.06);line-height:1.7;}
+.info{position:fixed;top:14px;left:16px;color:#9aa;font-size:13px;background:rgba(0,0,0,.35);padding:8px 14px;border-radius:10px;backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.06);line-height:1.7;z-index:5;}
 .info b{color:#d6e6ff;}
 .info .sub{font-size:11px;color:#6a6a86;}
-.legend{position:fixed;top:14px;right:16px;display:flex;flex-wrap:wrap;gap:6px;max-width:55vw;justify-content:flex-end;}
-.legend-item{display:flex;align-items:center;gap:5px;font-size:12px;color:#bbb;padding:4px 9px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.06);}
+.legend{position:fixed;top:14px;right:16px;display:flex;flex-wrap:wrap;gap:6px;max-width:55vw;justify-content:flex-end;z-index:5;}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:12px;color:#bbb;padding:4px 9px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.06);cursor:pointer;user-select:none;}
+.legend-item:hover{background:rgba(255,255,255,.1);color:#ddd;}
+.legend-item.active{background:rgba(120,210,255,.15);border-color:rgba(120,210,255,.4);color:#fff;}
 .legend-dot{width:10px;height:10px;border-radius:50%;}
-.graph-tooltip{background:transparent!important;padding:0!important;}
-.kg-tip{background:rgba(15,16,38,.92);border:1px solid rgba(120,210,255,.25);border-radius:10px;padding:10px 14px;box-shadow:0 8px 30px rgba(0,0,0,.55);min-width:140px;max-width:280px;}
-.kg-tip-row{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
-.kg-tip-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
-.kg-tip-name{font-size:15px;font-weight:600;color:#fff;}
-.kg-tip-cat{font-size:12px;color:#8ab4ff;margin-bottom:6px;}
-.kg-tip-desc{font-size:13px;color:#c8c8d4;line-height:1.5;border-top:1px solid rgba(255,255,255,.08);padding-top:6px;}
-.kg-tip-desc.muted{color:#666;font-style:italic;}
+#node-card{position:fixed;bottom:16px;left:16px;background:rgba(12,13,32,.96);border:1px solid rgba(120,210,255,.2);border-radius:10px;padding:14px 18px;max-width:280px;backdrop-filter:blur(10px);box-shadow:0 8px 30px rgba(0,0,0,.5);display:none;z-index:10;}
+.card-head{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.card-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;}
+.card-name{font-size:16px;font-weight:600;color:#fff;}
+.card-cat{font-size:12px;color:#8ab4ff;margin-bottom:6px;}
+.card-desc{font-size:13px;color:#bbb;line-height:1.5;}
+.card-desc.muted{color:#555;font-style:italic;}
 .kg-link-tip{background:rgba(15,16,38,.9);border:1px solid rgba(120,210,255,.2);border-radius:6px;padding:3px 8px;font-size:12px;color:#b0c8e8;}
+.graph-tooltip{background:transparent!important;padding:0!important;}
 </style>
 </head>
 <body>
 <div id="graph"></div>
-<div class="info">知识图谱 · <b>${data.nodes.length}</b> 节点 · <b>${data.links.length}</b> 关系<br><span class="sub">滚轮缩放 · 拖拽平移 · 悬停看详情</span></div>
+<div class="info">知识图谱 · <b>${data.nodes.length}</b> 节点 · <b>${data.links.length}</b> 关系<br><span class="sub">悬停看详情 · 单击高亮邻居 · 滚轮缩放 · 拖拽平移</span></div>
 <div class="legend">${legendHtml}</div>
+<div id="node-card"></div>
 <script>
 ${libSrc}
 <\/script>
