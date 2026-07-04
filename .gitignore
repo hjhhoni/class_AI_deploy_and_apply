@@ -1,0 +1,44 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+.conda/
+*.egg-info/
+.pytest_cache/
+
+# ===== Node / 前端 =====
+node_modules/
+dist/
+.vite/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ===== 本项目：大文件 / 缓存 / 运行时产物 =====
+# 模型权重（几 GB，用 down.py 下载，不入库；保留模型目录下的 README 等说明）
+model/**/*.gguf
+model/**/.cache/
+# 文档解析缓存
+uploads/
+# 服务日志与 PID
+logs/
+.run/
+
+# ===== IDE / 编辑器 =====
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ===== 操作系统 =====
+.DS_Store
+Thumbs.db
+desktop.ini
