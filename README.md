@@ -6,14 +6,8 @@
 
 全链路本地运行 · 零云端依赖 · 隐私安全
 
-![Vue](https://img.shields.io/badge/Vue-3.4-42b883?logo=vuedotjs&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-✓-009688?logo=fastapi&logoColor=white)
-![llama.cpp](https://img.shields.io/badge/llama.cpp-✓-4A90D9?logo=llama&logoColor=white)
-![Model](https://img.shields.io/badge/Model-Gemma4--12B--QAT-8E44AD)
-![Python](https://img.shields.io/badge/Python-3.10-3776AB?logo=python&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-F39C12)
+![Vue](https://img.shields.io/badge/Vue-3.4-42b883?logo=vuedotjs&logoColor=white) ![FastAPI](https://img.shields.io/badge/FastAPI-✓-009688?logo=fastapi&logoColor=white) ![llama.cpp](https://img.shields.io/badge/llama.cpp-✓-4A90D9?logo=llama&logoColor=white) ![Model](https://img.shields.io/badge/Model-Gemma4--12B--QAT-8E44AD) ![Python](https://img.shields.io/badge/Python-3.10-3776AB?logo=python&logoColor=white) ![License](https://img.shields.io/badge/License-MIT-F39C12)
 
-<!-- 放一张演示截图到 docs/demo.png 即可显示 -->
 <img src="./index.png" width="720" alt="演示截图" />
 
 </div>
