@@ -27,6 +27,7 @@ model/**/*.gguf
 model/**/.cache/
 # 文档解析缓存
 uploads/
+MODEL_GUIDE.md
 # 服务日志与 PID
 logs/
 .run/
