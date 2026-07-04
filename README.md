@@ -58,7 +58,7 @@
 
 ### 环境要求
 
-- **OS**：Linux / WSL2（Windows）
+- **OS**：Linux / WSL2 / Windows 原生（Windows 用附带的 `start.bat`，见下文「🪟 Windows 原生运行」）
 - **Python**：3.10+（推荐用 conda）
 - **Node.js**：18+
 - **GPU**：消费级 GPU 即可（8–12GB 显存，模型仅 6.9GB）
@@ -92,6 +92,42 @@ cd frontend && npm install
 启动顺序：`llama-server(8000) → 后端(3000) → 前端(5173)`。日志在 `logs/`，PID 在 `.run/`。
 
 浏览器打开 **http://127.0.0.1:5173** 即可使用 🎉
+
+### 🪟 Windows 原生运行（可选）
+
+不想装 WSL，也能在 Windows 原生跑起来，项目附带了 `start.bat`（用 `start` / `taskkill` / `netstat`，完全不依赖 bash）。
+
+**前置条件**：
+
+- **Windows 版 `llama-server.exe`**：从 [llama.cpp releases](https://github.com/ggerganov/llama.cpp/releases) 下载预编译包，或自行用 CMake + CUDA 编译。
+- **Python 3.10+**（Windows 安装包，或 conda）和 **Node.js 18+**。
+- 模型文件放到 `model/gemma-4-12b-uncensored/`（与 Linux 一致，可用 `python down.py` 下载）。
+
+**第 1 步：配置路径**。打开 `start.bat`，修改顶部「Config」区的两项：
+
+```bat
+set "LLAMA_SERVER=D:\llama.cpp\build\bin\llama-server.exe"   REM 你的 llama-server.exe 路径
+set "PYTHON=python"                                          REM 或 conda 环境 python.exe 的完整路径
+```
+
+**第 2 步：安装依赖**（首次）：
+
+```bat
+pip install -r requirements.txt
+cd frontend && npm install && cd ..
+```
+
+**第 3 步：一键启动**：
+
+```bat
+start.bat          :: 启动全部（各服务开一个最小化窗口）
+start.bat status   :: 查看 8000/3000/5173 端口占用
+start.bat stop     :: 停止全部（含 taskkill 兜底）
+```
+
+启动后访问 **http://127.0.0.1:5173**。
+
+> **与 Linux 版的设计差异**：Windows 版用 `start` 弹最小化窗口运行各服务、`taskkill` 按窗口标题+进程名停止、`netstat` 检测端口；不使用 bash、pkill、`&` 后台等 Linux 机制。脚本顶部带路径校验（找不到 `llama-server.exe` 或模型文件会提示并暂停）。
 
 ---
 
@@ -167,7 +203,8 @@ MAX_CHUNKS      = 6      # 最多块数（超长文档截断）
 class_AI_deploy_and_apply/
 ├── main.py                 # FastAPI 后端：文档解析 + 分块提取 + 合并 + 连通性兜底
 ├── down.py                 # 下载 GGUF 模型
-├── start.sh                # 一键启动/停止/重启/状态
+├── start.sh                # 一键启动/停止/重启/状态（Linux / WSL）
+├── start.bat               # 一键启动/停止/状态（Windows 原生）
 ├── requirements.txt
 ├── frontend/
 │   ├── package.json
